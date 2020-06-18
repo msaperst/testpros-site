@@ -11,14 +11,15 @@ import com.testpros.fast.reporter.Step;
 import com.testpros.fast.reporter.Step.Status;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.apache.commons.io.FileUtils;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
+import org.junit.*;
 import org.junit.rules.TestName;
+import org.openqa.selenium.Proxy;
+import org.openqa.selenium.chrome.ChromeOptions;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.net.URL;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -32,12 +33,14 @@ public class TestBase {
     private static final String START_CELL = "<td>";
     ThreadLocal<WebDriver> drivers = new ThreadLocal<>();
 
-    String url = "http://www.test.testpros.com/";
+    static String url = "http://www.test.testpros.com/";
+    static int zapPort = 9092;
+    static String zapLocation = "/snap/zaproxy/5/zap-2.9.0.jar";
 
     @Rule
     public TestName name = new TestName();
 
-    File testResults = new File("target/failsafe-reports/");
+    static File testResults = new File("target/failsafe-reports/");
     String seleniumHtmlTemplate = "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \n" +
             "\"http://www.w3.org/TR/html4/loose.dtd\">\n" +
             "<html>\n" +
@@ -71,17 +74,60 @@ public class TestBase {
             "<div class='column'><h2>Errors</h2>$errors</div>\n" +
             "<div class='column'><h2>Warnings</h2>$warnings</div>\n" +
             "</div>\n" +
-            "<div><img height='200' src='data:image/png;base64,$screenshot'/></div>\n" +
+            "<div><img src='data:image/png;base64,$screenshot'/></div>\n" +
             "</body>\n" +
             "</html>";
 
-    @Before
-    public void setupDriver() {
-        WebDriverManager.chromedriver().forceCache().setup();
-        WebDriver driver = new ChromeDriver();
+    static Process p;
+
+    @BeforeClass
+    public static void setupZap() throws IOException, InterruptedException {
+        // setup our classwide variables
         if (System.getProperty("url") != null) {
             url = System.getProperty("url");
         }
+        if (System.getProperty("zapLocation") != null) {
+            zapLocation = System.getProperty("zapLocation");
+        }
+        if (System.getProperty("zapPort") != null) {
+            zapPort = Integer.parseInt(System.getProperty("zapPort"));
+        }
+        // start zap
+        ProcessBuilder pb = new ProcessBuilder("java", "-Xmx11547m", "-XX:+UseG1GC", "-jar", zapLocation,
+                "-daemon", "-config", "api.disablekey=true", "-port", String.valueOf(zapPort));
+        pb.directory(new File("/tmp"));
+        p = pb.start();
+        // TODO - need a better way to check to see if it's started yet
+        Thread.sleep(10000);
+    }
+
+    @AfterClass
+    public static void destroyZap() throws IOException {
+        // get our zap file
+        URL url = new URL("http://localhost:" + zapPort + "/OTHER/core/other/htmlreport/?");
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), StandardCharsets.UTF_8));
+             BufferedWriter writer = new BufferedWriter(new FileWriter(new File(testResults, "zap.html")))) {
+            for (String line; (line = reader.readLine()) != null; ) {
+                writer.write(line);
+                writer.newLine();
+            }
+        }
+        // kill zap
+        p.destroy();
+    }
+
+    @Before
+    public void setupDriver() {
+        // install our chromedriver
+        WebDriverManager.chromedriver().forceCache().setup();
+        // setup our proxy
+        Proxy proxy = new Proxy();
+        proxy.setHttpProxy("localhost:" + zapPort);
+        ChromeOptions chromeOptions = new ChromeOptions();
+        chromeOptions.setProxy(proxy);
+        // start our chrome instaince
+        WebDriver driver = new ChromeDriver(chromeOptions);
+        // start the test by loading the initial page
         driver.get(url);
         drivers.set(driver);
     }
