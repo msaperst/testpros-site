@@ -13,6 +13,7 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 import org.apache.commons.io.FileUtils;
 import org.junit.*;
 import org.junit.rules.TestName;
+import org.junit.runner.RunWith;
 import org.openqa.selenium.Proxy;
 import org.openqa.selenium.chrome.ChromeOptions;
 
@@ -24,7 +25,9 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 
+@RunWith(MyRunner.class)
 public class TestBase {
 
     private static final String EXPECTED_ELEMENT = "Expected element '";
@@ -98,11 +101,13 @@ public class TestBase {
         pb.directory(new File("/tmp"));
         p = pb.start();
         // TODO - need a better way to check to see if it's started yet
-        Thread.sleep(10000);
+        Thread.sleep(15000);
     }
 
     @AfterClass
-    public static void destroyZap() throws IOException {
+    public static void destroyZap() throws IOException, InterruptedException {
+        // TODO - need a better way to check to see if it's finished yet
+        Thread.sleep(5000);
         // get our zap file
         URL url = new URL("http://localhost:" + zapPort + "/OTHER/core/other/htmlreport/?");
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), StandardCharsets.UTF_8));
@@ -126,6 +131,9 @@ public class TestBase {
         ChromeOptions chromeOptions = new ChromeOptions();
         chromeOptions.setProxy(proxy);
         // start our chrome instaince
+        java.util.logging.Logger.getLogger("org.openqa.selenium").setLevel(Level.SEVERE);
+        System.setProperty("webdriver.chrome.silentOutput", "true");
+        chromeOptions.setHeadless(true);
         WebDriver driver = new ChromeDriver(chromeOptions);
         // start the test by loading the initial page
         driver.get(url);
