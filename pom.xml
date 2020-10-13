@@ -22,7 +22,7 @@
         <selenium.version>3.141.59</selenium.version>
         <fast.java.version>1.0-SNAPSHOT</fast.java.version>
         <webdrivermanager.version>3.7.1</webdrivermanager.version>
-        <junit.version>4.13</junit.version>
+        <junit.version>4.13.1</junit.version>
         <maven.failsafe.plugin.version>2.22.2</maven.failsafe.plugin.version>
         <maven.compiler.plugin.version>3.7.0</maven.compiler.plugin.version>
     </properties>
